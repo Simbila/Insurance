@@ -46,7 +46,7 @@
         get_dupes(.)  # Two rows are repeated, have the same value in age,sex,mbi,chilgren,smoker,region, and charges
       
       
-      # Remove duplicates rows
+      # Remove duplicates rows -------------------------------------------------
       df_No_dupes<-df %>% 
         distinct()
       
@@ -55,7 +55,7 @@
       colSums(is.na(df_No_dupes))
       
       
-      #Exploratory Data Analysis -----------------------
+      #Exploratory Data Analysis -------------------------------------------
       # Explore the data
       df_No_dupes %>% 
         summary() 
@@ -147,7 +147,7 @@
       # Relationship between all the independent variables and dependent variable are explored in the initial exploratory data analysis phase.
       
       
-      # The following figure shows the relationship between age and BMI.
+      # Relationship between Age and BMI. --------------------------------------------
       df_No_dupes %>% 
         select(charges,age,bmi) %>% 
         pivot_longer(cols = c("age","bmi"), names_to = "age_bmi", values_to = "values") %>% 
