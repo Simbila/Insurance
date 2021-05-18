@@ -1,0 +1,295 @@
+
+      # Analysius of Premium Insurance Cover 
+      # W. Simbila, May 2021
+      # Set a working directory
+        setwd("~")
+        dir.create("HealthInsurance", showWarnings = FALSE)
+        setwd("~/HealthInsurance")
+  
+      
+      # Install and require T librabry --------------------------------
+      install.packages("tidyverse", "tidymodel", "janitor", "glmnet", "patchwork", dependencies = TRUE)
+      
+      # Load required packages ---------------------------------------
+      library(tidyverse)
+      library(tidymodels)
+      library(janitor)
+      library(glmnet)
+      library(patchwork)
+      
+      
+      
+      # Import dataset ---------------------------------------------
+      df_insurance<-read.csv("insurance.csv")
+      
+      # Explore the data
+      df_insurance %>% 
+        str()
+      
+      
+      df_insurance %>% 
+        summary()
+      
+      
+      df_insurance
+      
+      # change the following variables to factor
+      df<-df_insurance %>% 
+        mutate(sex = as.factor(sex),
+               children = as.factor(children),
+               smoker = as.factor(smoker),
+               region = as.factor(region))
+      
+      
+     # check for repeated rows/duplucates rows -------------------------------
+      df %>% 
+        get_dupes(.)  # Two rows are repeated, have the same value in age,sex,mbi,chilgren,smoker,region, and charges
+      
+      
+      # Remove duplicates rows
+      df_No_dupes<-df %>% 
+        distinct()
+      
+      
+      # Check for the missing variables (NA) ------------------------------
+      colSums(is.na(df_No_dupes))
+      
+      
+      #Exploratory Data Analysis -----------------------
+      # Explore the data
+      df_No_dupes %>% 
+        summary() 
+      
+      # The dataset has a similar number of people for each category, except for smoker.
+      # We have more non-smokers than smokers, which makes sense. 
+      # The charges itself varies greatly from around $1,000 to $64,000.
+      
+      
+      
+      # Distribution of the dependent variable --------------------------------------------
+      df_No_dupes %>% 
+        ggplot(aes(x= charges, fill = cut(x= charges,100)))+
+        geom_histogram(show.legend = FALSE,bins = 30)+
+        scale_fill_discrete(h = c(240,20), c= 120, l = 70)+
+        labs(x= "Insurance Charges", y = "Frequency", title = "Distribution of Charges")+
+        theme_bw()
+      
+      # The distribution is right-skewed with a long tail to the right. 
+      # There's a bump at around $40,000, perhaps another hidden distribution. 
+      # To dig this up, we need to analyse the  categorical features.
+      
+      
+      
+      df_No_dupes %>% 
+        ggplot(aes(x = sex, y = charges,fill = sex))+
+        geom_boxplot(show.legend = FALSE)+
+        labs(x = "Sex", y = "Insurance charges", title = "Distribution of Charges per Sex")+
+        theme_bw()
+      # From the above plot, sex have no differences for each category 
+      # in terms of charges given.
+      
+      
+      
+      df_No_dupes %>% 
+        ggplot(aes(x = children, y = charges,fill = children))+
+        geom_boxplot(show.legend = FALSE)+
+        labs(x = "children", y = "Insurance charges", title = "Distribution of Charges per children")+
+        theme_bw()
+      # We can see that there is an increasing trend in charges as the children increases. 
+      
+      
+      
+      df_No_dupes %>% 
+        ggplot(aes(x = smoker, y = charges,fill = smoker))+
+        geom_boxplot(show.legend = FALSE)+
+        labs(x = "Smoker", y = "Insurance charges", title = "Distribution of Charges per Smoker")+
+        theme_bw()
+      # Lastly, smoker seems to make a significant difference to charges given by health insurance.
+      
+      
+      
+      # Analysis of Insurance charges by age, according to the smoker factor. ---------------------
+      df_No_dupes %>% 
+        ggplot(aes(x = age, y = charges, group = smoker,fill = smoker,col = smoker))+
+        geom_jitter()+
+        geom_smooth(method = "lm")+
+        labs(x = "Age", y = "Charges", title = "Relationship between Age and Charges per smoker")+
+        theme_bw()
+      
+      
+      
+      # Analysis of Insurance charges by bmi, according to the smoker factor.
+      df_No_dupes %>% 
+        ggplot(aes(x = bmi, y = charges, group = smoker,fill = smoker,col = smoker))+
+        geom_jitter()+
+        geom_smooth(method = "lm")+
+        labs(x = "Age", y = "Charges", title = "Relationship between BMI and Charges per smoker")+
+        theme_bw()
+      
+      
+      
+      # Analysis of Insurance charges by children, according to the smoker factor.
+      df_No_dupes %>% 
+        ggplot(aes(x = children, y = charges, group = smoker,fill = smoker,col = smoker))+
+        geom_jitter()+
+        geom_smooth(method = "lm")+
+        labs(x = "Children", y = "Charges", title = "Relationship between Children and Charges per Smoker")+
+        theme_bw()
+      # From the plots abovesmoker seems to have the highest impact on medical charges, 
+      # even though the charges are growing with age, bmi, and children.
+      # Also, people who have more children generally smoke less.
+      
+      
+      
+      
+      
+      # EXPLORATORY DATA ANALYSIS (EDA) ----------------------------------------------
+      # Relationship between all the independent variables and dependent variable are explored in the initial exploratory data analysis phase.
+      
+      
+      # The following figure shows the relationship between age and BMI.
+      df_No_dupes %>% 
+        select(charges,age,bmi) %>% 
+        pivot_longer(cols = c("age","bmi"), names_to = "age_bmi", values_to = "values") %>% 
+        mutate(age_bmi = case_when(age_bmi == "age" ~ "Age",
+                                   TRUE ~ "BMI")) %>% 
+        ggplot(aes(x= values,y = charges, color = age_bmi))+
+        geom_point(show.legend = FALSE)+
+        labs(x= " ", y = "Insurance Charges", title = "Correlation between Charges and Age/ BMI")+
+        facet_wrap(~age_bmi, scales = "free_x")+
+        theme_bw() +
+        theme(plot.title = element_text(hjust = 0.5,face = "bold"))
+      
+      # A scatterplot is created to show these relationships:
+      # For age, the relationship is almost linear as the charges increase with increase in the age of the person.
+      # However, for BMI the relationship does not seem to be linear. Nevertheless, charges increase with the increase in a person's BMI.
+      
+      
+      # Shows the relationship between age and BMI.
+      
+      df_No_dupes %>% 
+        select(charges,age,bmi,smoker) %>% 
+        pivot_longer(cols = c("age","bmi"), names_to = "age_bmi", values_to = "values") %>% 
+        mutate(age_bmi = case_when(age_bmi == "age" ~ "Age",
+                                   TRUE ~ "BMI")) %>% 
+        ggplot(aes(x= values,y = charges, color = smoker))+
+        geom_point(show.legend = TRUE)+
+        labs(x= " ", y = "Insurance Charges", title = "Correlation between Charges and Age/ BMI")+
+        facet_wrap(~age_bmi, scales = "free_x")+
+        theme_bw() +
+        theme(plot.title = element_text(hjust = 0.5,face = "bold"))
+      # The plot above shows that, the same age group, charges are higher for a person who smokes than a non-smoker as 
+      # shown by the blue (person who smokes) and red (person who does not smoke) dots.
+      # People who are obese and smoke tend to have higher charges.
+      
+      
+      # To examine the relationships between the sex and children and smokers,we use scatter plot 
+      smoker_plot<-df_No_dupes %>% 
+        select(charges,smoker)%>% 
+        #pivot_longer(cols = c("sex","smoker"), names_to = "sex_smoker", values_to = "values") %>%  
+        mutate(smoker= case_when(smoker == "yes" ~ "Yes",
+                                 TRUE ~ "No")) %>% 
+        ggplot(aes(x= smoker,y = charges, color = smoker))+
+        geom_jitter(show.legend = TRUE)+
+        labs(x= "Smoker", y = "Insurance Charges")+
+        #facet_wrap(~sex_smoker, scales = "free_x")+
+        theme_bw() +
+        theme(plot.title = element_text(hjust = 0.5))
+      
+      
+      sex_plot<-df_No_dupes %>% 
+        select(charges,sex)%>% 
+        mutate(sex= case_when(sex == "male" ~ "Male",
+                              TRUE ~ "Female")) %>% 
+        ggplot(aes(x= sex,y = charges, color = sex))+
+        geom_jitter(show.legend = TRUE)+
+        labs(x= "Sex", y = "Insurance Charges")+
+        #facet_wrap(~sex_smoker, scales = "free_x")+
+        theme_bw() +
+        theme(plot.title = element_text(hjust = 0.5))
+      
+      
+      children_plot<-df_No_dupes %>% 
+        select(charges,children)%>% 
+        ggplot(aes(x= children,y = charges, color = children))+
+        geom_jitter(show.legend = TRUE)+
+        labs(x= "Children", y = "Insurance Charges")+
+        theme_bw() +
+        theme(plot.title = element_text(hjust = 0.5))
+      
+      
+      patchwork<-smoker_plot + sex_plot - children_plot +
+        plot_layout(ncol = 1)+
+        plot_annotation(title = "Correlation between Insuarance Charges and smoker/sex")
+      patchwork
+      # The plot above shows that, the charges are significantly higher for smokers as compared to non-smokers.
+      # There is no significant relationship exists between the gender and the premium charges.
+      # However, it can be seen that the charges increase with increase in the number of children.
+      
+      
+      
+      # PREDICTIVE MODELLING -------------------------------------------------------------
+      
+      # The goal is to predict the premium charge which is a numeric outcome. 
+      # So, regression models like multiple linear regression,
+      # and random forest are used for predictive modelling.
+      
+      
+      
+      # Model Training -------------------------------------------------
+      # Split the data into train and test data
+      set.seed(1234)
+      split_data<-df_No_dupes %>% 
+        initial_split(prop = 0.8,strata = charges)
+      
+      split_data
+      
+      # Get training data ---------------------------------------------
+      insurance_train<-training(split_data)
+      insurance_train
+      
+      # Get the test data -------------------------------------------
+      insurance_test<-testing(split_data)
+      insurance_test
+      
+      
+      
+      
+      # Define a pre-procesing method where we will tune correlation threshold
+      
+      insurance_rec <- recipe(charges~., data = insurance_train) %>% 
+        step_nzv(all_numeric(), -all_outcomes()) %>% 
+        step_normalize(all_numeric(), -all_outcomes()) %>% 
+        step_YeoJohnson(all_numeric(), -all_outcomes()) %>% 
+        step_dummy(all_nominal()) %>% 
+        prep()
+      
+      
+      insurance_juice<-juice(insurance_rec)
+      view(insurance_juice)
+      
+      # Defining and Fitting Models using parsnip---------------
+      lm_model <- linear_reg() %>% 
+        set_mode("regression") %>% 
+        set_engine("lm")
+      
+      lm_model
+      
+      # Model Fitting ----------------------------------------
+      lm_fit1<-lm_model %>% 
+        fit(charges~., insurance_juice)
+      lm_fit1
+      
+      # Exploring Training Results-----------------------------------
+      names(lm_fit1)
+      
+      summary(lm_fit1$fit)
+      
+      
+      par(mfrow=c(2,2)) # plot all 4 plots in one
+      
+      plot(lm_fit1$fit, 
+           pch = 16,    # optional parameters to make points blue
+           col = '#006EA1')
+      
+      
